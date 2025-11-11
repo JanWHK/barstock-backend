@@ -1,30 +1,19 @@
-# Use Debian-based image to avoid Prisma + OpenSSL issues on Alpine
-FROM node:20-bullseye-slim
-
-# Optional: keep image small & up-to-date
-RUN apt-get update -y && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
-
+# 1) Build
+FROM node:20-bullseye-slim as build
 WORKDIR /app
-
-# 1) Package manifests first
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-
-# 2) Prisma schema BEFORE install (postinstall runs prisma generate)
-COPY prisma ./prisma
-
-# 3) Install deps (falls back if no lockfile)
+COPY package*.json ./
 RUN npm ci || npm i
+COPY . .
+# Vite reads this at build time
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
 
-# 4) Explicit generate (harmless if postinstall already ran)
-RUN npx prisma generate
-
-# 5) App code & tools
-COPY src ./src
-COPY tools ./tools
-
-ENV PORT=8080
-EXPOSE 8080
-
-CMD [ "npm", "run", "start" ]
+# 2) Serve with Nginx
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist/ /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]
 
 
