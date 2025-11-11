@@ -25,4 +25,6 @@ COPY tools ./tools
 ENV PORT=8080
 EXPOSE 8080
 
-CMD [ "sh", "-lc", "npm run migrate && npm run start" ]
+CMD [ "npm", "run", "start" ]
+
+
